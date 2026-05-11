@@ -3,8 +3,8 @@
 This project simulates how clock phase noise maps into sampling jitter and degrades audio signal quality.
 
 Main script: `clock_audio_jitter.py`
-Configuration: `clock_audio_jitter_config.yaml`
-Output image: `clock_audio_jitter_results.png`
+Default configuration: `clock_audio_jitter_config.yaml`
+Output image path: configured by `plots.output_path`
 
 ## What It Does
 
@@ -15,9 +15,14 @@ Output image: `clock_audio_jitter_results.png`
 - Synthesizes phase noise in the frequency domain
 - Converts phase noise to timing jitter
 - Applies jitter to sample timing for single-tone, 2-tone, or 32-tone comb input
-- Computes jitter-limited SNR
+- Computes and reports:
+  - simulation RMS jitter
+  - model RMS jitter over analysis band (`integration.fmin_hz..integration.fmax_hz`, Nyquist-clipped)
+  - model RMS jitter over datasheet band (`integration.datasheet_fmin_hz..integration.datasheet_fmax_hz`, Nyquist-clipped)
+  - jitter-limited SNR
 - Plots:
-  - phase-noise profile (target vs synthesized)
+  - phase-noise profile (ideal model vs synthesized)
+  - shaded datasheet integration band on the phase-noise plot
   - short jitter zoom
   - FFT around the signal or full-band (multitone/comb)
   - zoomed-out jitter trend for low-frequency behavior
@@ -48,6 +53,14 @@ Use a custom config:
 ```bash
 python clock_audio_jitter.py --config my_config.yaml
 ```
+
+Tip: all reported integration upper bounds are effectively clipped to audio Nyquist (`audio.fs_audio_hz / 2`).
+
+## Sample Output
+
+Generic crystal example output:
+
+![Generic crystal piecewise single-tone example](images/generic-crystal_piecewise_single_sample.png)
 
 ## Preset Configurations
 
@@ -100,10 +113,14 @@ All runtime settings are in `clock_audio_jitter_config.yaml`.
 - frequencies must be greater than 0
 - at least two points are required
 - interpolation is linear in log-frequency and dBc/Hz
+- values below the first point or above the last point are endpoint-clamped
 
 ### `integration`
 
-- `fmin_hz`, `fmax_hz`: integration band for model RMS jitter
+- `fmin_hz`, `fmax_hz`: analysis integration band for model RMS jitter
+- `datasheet_fmin_hz`, `datasheet_fmax_hz`: separate datasheet-style integration band
+
+Both integration bands are limited by Nyquist (`audio.fs_audio_hz / 2`) in the current implementation.
 
 ### `plots`
 
@@ -114,5 +131,8 @@ All runtime settings are in `clock_audio_jitter_config.yaml`.
 ## Notes
 
 - For low-frequency-dominated phase noise, increase `audio.duration_s` and `plots.jitter_overview_fraction`.
+- The phase-noise panel shades the datasheet jitter band with a discrete tint.
+- The idealized model trace is drawn in the foreground for readability.
+- The summary includes simulation jitter plus both analysis-band and datasheet-band model jitter values.
 - In `twotone` mode, the script marks the IMD2 difference product in the FFT panel.
 - In `comb` mode, FFT panel shows full audio Nyquist band.

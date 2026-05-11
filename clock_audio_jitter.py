@@ -57,6 +57,8 @@ def load_config(config_path):
         ],
         "jitter_integration_fmin_hz": float(integration.get("fmin_hz", 0.1)),
         "jitter_integration_fmax_hz": float(integration.get("fmax_hz", 24_000.0)),
+        "datasheet_jitter_fmin_hz": float(integration.get("datasheet_fmin_hz", 100.0)),
+        "datasheet_jitter_fmax_hz": float(integration.get("datasheet_fmax_hz", integration.get("fmax_hz", 24_000.0))),
     }
 
     if cfg["multitone_mode"] not in {"single", "twotone", "comb"}:
@@ -67,6 +69,10 @@ def load_config(config_path):
         raise ValueError("audio.fs_audio_hz, audio.duration_s, and audio.clock_hz must be > 0")
     if cfg["jitter_integration_fmin_hz"] <= 0.0:
         raise ValueError("integration.fmin_hz must be > 0")
+    if cfg["datasheet_jitter_fmin_hz"] <= 0.0:
+        raise ValueError("integration.datasheet_fmin_hz must be > 0")
+    if cfg["datasheet_jitter_fmax_hz"] <= cfg["datasheet_jitter_fmin_hz"]:
+        raise ValueError("integration.datasheet_fmax_hz must be > integration.datasheet_fmin_hz")
 
     return cfg
 
@@ -237,6 +243,8 @@ def main(config_path=DEFAULT_CONFIG_PATH, show_plot=True):
     piecewise_phase_noise_points = cfg["piecewise_phase_noise_points"]
     jitter_integration_fmin_hz = cfg["jitter_integration_fmin_hz"]
     jitter_integration_fmax_hz = cfg["jitter_integration_fmax_hz"]
+    datasheet_jitter_fmin_hz = cfg["datasheet_jitter_fmin_hz"]
+    datasheet_jitter_fmax_hz = cfg["datasheet_jitter_fmax_hz"]
 
     rng = np.random.default_rng(rng_seed)
     effective_fmax_hz = min(jitter_integration_fmax_hz, fs_audio_hz / 2.0)
@@ -288,6 +296,19 @@ def main(config_path=DEFAULT_CONFIG_PATH, show_plot=True):
         model_sphi[jitter_model_mask],
         clock_hz,
     )
+    datasheet_effective_fmax_hz = min(datasheet_jitter_fmax_hz, fs_audio_hz / 2.0)
+    datasheet_jitter_mask = (
+        (model_freq_bins >= datasheet_jitter_fmin_hz)
+        & (model_freq_bins <= datasheet_effective_fmax_hz)
+    )
+    if np.any(datasheet_jitter_mask):
+        model_jitter_datasheet_rms_s = model_rms_jitter_seconds_from_psd(
+            model_freq_bins[datasheet_jitter_mask],
+            model_sphi[datasheet_jitter_mask],
+            clock_hz,
+        )
+    else:
+        model_jitter_datasheet_rms_s = np.nan
 
     # Resolve active tone list from mode
     if multitone_mode == "comb":
@@ -337,8 +358,32 @@ def main(config_path=DEFAULT_CONFIG_PATH, show_plot=True):
     slope_label = model_label
     plot_mask_model = model_freq_bins >= jitter_integration_fmin_hz
     plot_mask_est = psd_freq >= jitter_integration_fmin_hz
-    axes[0, 0].plot(model_freq_bins[plot_mask_model], model_phase_noise_dbc[plot_mask_model], label=slope_label)
-    axes[0, 0].plot(psd_freq[plot_mask_est], phase_noise_est_dbc[plot_mask_est], label="Synthesized phase noise")
+    axes[0, 0].plot(
+        psd_freq[plot_mask_est],
+        phase_noise_est_dbc[plot_mask_est],
+        label="Synthesized phase noise",
+        color="tab:orange",
+        linewidth=1.4,
+        alpha=0.9,
+        zorder=2,
+    )
+    axes[0, 0].plot(
+        model_freq_bins[plot_mask_model],
+        model_phase_noise_dbc[plot_mask_model],
+        label=slope_label,
+        color="tab:blue",
+        linewidth=2.2,
+        zorder=8,
+    )
+    if datasheet_effective_fmax_hz > datasheet_jitter_fmin_hz:
+        axes[0, 0].axvspan(
+            datasheet_jitter_fmin_hz,
+            datasheet_effective_fmax_hz,
+            color="#A6E3BC",
+            alpha=0.20,
+            zorder=1,
+            label=f"Datasheet jitter band ({datasheet_jitter_fmin_hz:g}..{datasheet_effective_fmax_hz:g} Hz)",
+        )
     axes[0, 0].set_xscale("log")
     axes[0, 0].set_xlabel("Offset frequency [Hz]")
     axes[0, 0].set_ylabel("L(f) [dBc/Hz]")
@@ -411,6 +456,7 @@ def main(config_path=DEFAULT_CONFIG_PATH, show_plot=True):
         f"Audio sampling under {profile_label} clock phase noise — {mode_label}\n"
         f"RMS jitter(sim) = {jitter_rms_s * 1e12:.3f} ps, "
         f"RMS jitter(model {jitter_integration_fmin_hz:g}..{effective_fmax_hz:g} Hz) = {model_jitter_rms_s * 1e12:.3f} ps, "
+        f"RMS jitter(datasheet {datasheet_jitter_fmin_hz:g}..{datasheet_effective_fmax_hz:g} Hz) = {model_jitter_datasheet_rms_s * 1e12:.3f} ps, "
         f"jitter-limited SNR = {snr_jitter_db:.2f} dB"
     )
 
