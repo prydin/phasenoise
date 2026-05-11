@@ -18,11 +18,11 @@ Output image path: configured by `plots.output_path`
 - Computes and reports:
   - simulation RMS jitter
   - model RMS jitter over analysis band (`integration.fmin_hz..integration.fmax_hz`, Nyquist-clipped)
-  - model RMS jitter over datasheet band (`integration.datasheet_fmin_hz..integration.datasheet_fmax_hz`, Nyquist-clipped)
+  - model RMS jitter over bw-limited band (`integration.bw_limited_fmin_hz..integration.bw_limited_fmax_hz`, Nyquist-clipped)
   - jitter-limited SNR
 - Plots:
   - phase-noise profile (ideal model vs synthesized)
-  - shaded datasheet integration band on the phase-noise plot
+  - shaded bw-limited integration band on the phase-noise plot
   - short jitter zoom
   - FFT around the signal or full-band (multitone/comb)
   - zoomed-out jitter trend for low-frequency behavior
@@ -62,13 +62,13 @@ Generic crystal example output:
 
 ![Generic crystal piecewise single-tone example](images/generic-crystal_piecewise_single_sample.png)
 
-This sample is generated from [configs/generic_crystal.yaml](configs/generic_crystal.yaml). It uses the `piecewise` phase-noise model with typical crystal-like close-in and far-out anchors, then reports jitter over a datasheet-style band (`integration.datasheet_fmin_hz` to `integration.datasheet_fmax_hz`) to mimic a basic oscillator specification near 1 ps RMS.
+This sample is generated from [configs/generic_crystal.yaml](configs/generic_crystal.yaml). It uses the `piecewise` phase-noise model with typical crystal-like close-in and far-out anchors, then reports jitter over a bw-limited band (`integration.bw_limited_fmin_hz` to `integration.bw_limited_fmax_hz`) to mimic a basic oscillator specification near 1 ps RMS.
 
 ## Preset Configurations
 
 Ready-to-run examples are in [configs](configs):
 
-- [configs/generic_crystal.yaml](configs/generic_crystal.yaml): piecewise single-tone profile intended to emulate a generic ~1 ps RMS datasheet-style crystal oscillator
+- [configs/generic_crystal.yaml](configs/generic_crystal.yaml): piecewise single-tone profile intended to emulate a generic ~1 ps RMS bw-limited crystal oscillator
 - [configs/power_law_single.yaml](configs/power_law_single.yaml): single 1 kHz tone with 2-anchor power-law phase noise
 - [configs/piecewise_twotone_19k_20k.yaml](configs/piecewise_twotone_19k_20k.yaml): 19+20 kHz two-tone with piecewise phase-noise profile
 - [configs/piecewise_comb_32tone.yaml](configs/piecewise_comb_32tone.yaml): 32-tone comb with piecewise phase-noise profile
@@ -85,6 +85,10 @@ python clock_audio_jitter.py --config configs/piecewise_comb_32tone.yaml
 ## Configuration Guide
 
 All runtime settings are in `clock_audio_jitter_config.yaml`.
+
+### Top-Level
+
+- `dut_name` (optional): label shown in the figure heading as `DUT: <name>`. If omitted or empty, no DUT label is shown.
 
 ### `audio`
 
@@ -122,7 +126,7 @@ All runtime settings are in `clock_audio_jitter_config.yaml`.
 ### `integration`
 
 - `fmin_hz`, `fmax_hz`: analysis integration band for model RMS jitter
-- `datasheet_fmin_hz`, `datasheet_fmax_hz`: separate datasheet-style integration band
+- `bw_limited_fmin_hz`, `bw_limited_fmax_hz`: separate bw-limited integration band
 
 Both integration bands are limited by Nyquist (`audio.fs_audio_hz / 2`) in the current implementation.
 
@@ -135,8 +139,8 @@ Both integration bands are limited by Nyquist (`audio.fs_audio_hz / 2`) in the c
 ## Notes
 
 - For low-frequency-dominated phase noise, increase `audio.duration_s` and `plots.jitter_overview_fraction`.
-- The phase-noise panel shades the datasheet jitter band with a discrete tint.
+- The phase-noise panel shades the bw-limited jitter band with a discrete tint.
 - The idealized model trace is drawn in the foreground for readability.
-- The summary includes simulation jitter plus both analysis-band and datasheet-band model jitter values.
+- The summary includes simulation jitter plus both analysis-band and bw-limited model jitter values.
 - In `twotone` mode, the script marks the IMD2 difference product in the FFT panel.
 - In `comb` mode, FFT panel shows full audio Nyquist band.

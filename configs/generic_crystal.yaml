@@ -22,10 +22,10 @@ phase_noise:
 integration:
   fmin_hz: 0.1
   fmax_hz: 1000000.0
-  datasheet_fmin_hz: 100.0
-  datasheet_fmax_hz: 1000000.0
+  bw_limited_fmin_hz: 100
+  bw_limited_fmax_hz: 1000000.0
 
 plots:
   waveform_zoom_periods: 5.0
   jitter_overview_fraction: 0.25
-  output_path: generic-crystal_piecewise_single.png
+  output_path: output/generic-crystal_piecewise_single.png

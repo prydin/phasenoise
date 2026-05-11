@@ -1,6 +1,8 @@
+dut_name: "High end 45158.25MHz OCXO"
+
 audio:
   fs_audio_hz: 48000.0
-  duration_s: 20.0
+  duration_s: 60.0
   input_tone_hz: 1000.0
   clock_hz: 4915200.0
   rng_seed: 42
@@ -11,10 +13,14 @@ signal:
 phase_noise:
   model: piecewise
   piecewise_points:
-    - [0.1, -300]
-    - [0.9, -300]
-    - [1, -40]
-    - [1.1, -300]
+    - [0.1, -49.44]
+    - [1, -89.66]
+    - [10, -118.16]
+    - [100, -145.34]
+    - [1000, -157.60]
+    - [10000, -165.26]
+    - [100000, -170.15]
+    - [1000000, -171.54]
 
 integration:
   fmin_hz: 0.1
@@ -25,4 +31,4 @@ integration:
 plots:
   waveform_zoom_periods: 5.0
   jitter_overview_fraction: 0.25
-  output_path: output/generic-crystal_piecewise_single.png
+  output_path: output/akx22-45_158_clock_audio_jitter_results.png

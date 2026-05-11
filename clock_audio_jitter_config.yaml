@@ -1,3 +1,6 @@
+ # Optional DUT label shown in plot heading. Omit or leave blank to hide.
+dut_name: ""
+
 audio:
   fs_audio_hz: 48000.0
   duration_s: 20.0
@@ -50,9 +53,9 @@ phase_noise:
 integration:
   fmin_hz: 0.1
   fmax_hz: 24000.0
-  # Datasheet-style integration band reported separately and shaded on the phase-noise plot
-  datasheet_fmin_hz: 100.0
-  datasheet_fmax_hz: 24000.0
+  # BW-limited integration band reported separately and shaded on the phase-noise plot
+  bw_limited_fmin_hz: 100.0
+  bw_limited_fmax_hz: 24000.0
 
 plots:
   waveform_zoom_periods: 5.0

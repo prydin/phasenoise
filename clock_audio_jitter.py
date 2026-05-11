@@ -29,6 +29,7 @@ def load_config(config_path):
     plots = raw.get("plots", {})
 
     cfg = {
+        "dut_name": raw.get("dut_name", None),
         "output_path": Path(plots.get("output_path", DEFAULT_OUTPUT_PATH)),
         "fs_audio_hz": float(audio.get("fs_audio_hz", 48_000.0)),
         "duration_s": float(audio.get("duration_s", 20.0)),
@@ -57,8 +58,10 @@ def load_config(config_path):
         ],
         "jitter_integration_fmin_hz": float(integration.get("fmin_hz", 0.1)),
         "jitter_integration_fmax_hz": float(integration.get("fmax_hz", 24_000.0)),
-        "datasheet_jitter_fmin_hz": float(integration.get("datasheet_fmin_hz", 100.0)),
-        "datasheet_jitter_fmax_hz": float(integration.get("datasheet_fmax_hz", integration.get("fmax_hz", 24_000.0))),
+        "bw_limited_jitter_fmin_hz": float(integration.get("bw_limited_fmin_hz", 100.0)),
+        "bw_limited_jitter_fmax_hz": float(
+            integration.get("bw_limited_fmax_hz", integration.get("fmax_hz", 24_000.0))
+        ),
     }
 
     if cfg["multitone_mode"] not in {"single", "twotone", "comb"}:
@@ -69,10 +72,17 @@ def load_config(config_path):
         raise ValueError("audio.fs_audio_hz, audio.duration_s, and audio.clock_hz must be > 0")
     if cfg["jitter_integration_fmin_hz"] <= 0.0:
         raise ValueError("integration.fmin_hz must be > 0")
-    if cfg["datasheet_jitter_fmin_hz"] <= 0.0:
-        raise ValueError("integration.datasheet_fmin_hz must be > 0")
-    if cfg["datasheet_jitter_fmax_hz"] <= cfg["datasheet_jitter_fmin_hz"]:
-        raise ValueError("integration.datasheet_fmax_hz must be > integration.datasheet_fmin_hz")
+    if cfg["bw_limited_jitter_fmin_hz"] <= 0.0:
+        raise ValueError("integration.bw_limited_fmin_hz must be > 0")
+    if cfg["bw_limited_jitter_fmax_hz"] <= cfg["bw_limited_jitter_fmin_hz"]:
+        raise ValueError("integration.bw_limited_fmax_hz must be > integration.bw_limited_fmin_hz")
+
+    dut_name = cfg["dut_name"]
+    if dut_name is None:
+        cfg["dut_name"] = None
+    else:
+        dut_name = str(dut_name).strip()
+        cfg["dut_name"] = dut_name if dut_name else None
 
     return cfg
 
@@ -216,6 +226,7 @@ def fft_db(signal, fs_hz):
 def main(config_path=DEFAULT_CONFIG_PATH, show_plot=True):
     cfg = load_config(config_path)
 
+    dut_name = cfg["dut_name"]
     output_path = cfg["output_path"]
     fs_audio_hz = cfg["fs_audio_hz"]
     duration_s = cfg["duration_s"]
@@ -243,8 +254,8 @@ def main(config_path=DEFAULT_CONFIG_PATH, show_plot=True):
     piecewise_phase_noise_points = cfg["piecewise_phase_noise_points"]
     jitter_integration_fmin_hz = cfg["jitter_integration_fmin_hz"]
     jitter_integration_fmax_hz = cfg["jitter_integration_fmax_hz"]
-    datasheet_jitter_fmin_hz = cfg["datasheet_jitter_fmin_hz"]
-    datasheet_jitter_fmax_hz = cfg["datasheet_jitter_fmax_hz"]
+    bw_limited_jitter_fmin_hz = cfg["bw_limited_jitter_fmin_hz"]
+    bw_limited_jitter_fmax_hz = cfg["bw_limited_jitter_fmax_hz"]
 
     rng = np.random.default_rng(rng_seed)
     effective_fmax_hz = min(jitter_integration_fmax_hz, fs_audio_hz / 2.0)
@@ -296,19 +307,19 @@ def main(config_path=DEFAULT_CONFIG_PATH, show_plot=True):
         model_sphi[jitter_model_mask],
         clock_hz,
     )
-    datasheet_effective_fmax_hz = min(datasheet_jitter_fmax_hz, fs_audio_hz / 2.0)
-    datasheet_jitter_mask = (
-        (model_freq_bins >= datasheet_jitter_fmin_hz)
-        & (model_freq_bins <= datasheet_effective_fmax_hz)
+    bw_limited_effective_fmax_hz = min(bw_limited_jitter_fmax_hz, fs_audio_hz / 2.0)
+    bw_limited_jitter_mask = (
+        (model_freq_bins >= bw_limited_jitter_fmin_hz)
+        & (model_freq_bins <= bw_limited_effective_fmax_hz)
     )
-    if np.any(datasheet_jitter_mask):
-        model_jitter_datasheet_rms_s = model_rms_jitter_seconds_from_psd(
-            model_freq_bins[datasheet_jitter_mask],
-            model_sphi[datasheet_jitter_mask],
+    if np.any(bw_limited_jitter_mask):
+        model_jitter_bw_limited_rms_s = model_rms_jitter_seconds_from_psd(
+            model_freq_bins[bw_limited_jitter_mask],
+            model_sphi[bw_limited_jitter_mask],
             clock_hz,
         )
     else:
-        model_jitter_datasheet_rms_s = np.nan
+        model_jitter_bw_limited_rms_s = np.nan
 
     # Resolve active tone list from mode
     if multitone_mode == "comb":
@@ -375,14 +386,14 @@ def main(config_path=DEFAULT_CONFIG_PATH, show_plot=True):
         linewidth=2.2,
         zorder=8,
     )
-    if datasheet_effective_fmax_hz > datasheet_jitter_fmin_hz:
+    if bw_limited_effective_fmax_hz > bw_limited_jitter_fmin_hz:
         axes[0, 0].axvspan(
-            datasheet_jitter_fmin_hz,
-            datasheet_effective_fmax_hz,
+            bw_limited_jitter_fmin_hz,
+            bw_limited_effective_fmax_hz,
             color="#A6E3BC",
             alpha=0.20,
             zorder=1,
-            label=f"Datasheet jitter band ({datasheet_jitter_fmin_hz:g}..{datasheet_effective_fmax_hz:g} Hz)",
+            label=f"BW-limited jitter band ({bw_limited_jitter_fmin_hz:g}..{bw_limited_effective_fmax_hz:g} Hz)",
         )
     axes[0, 0].set_xscale("log")
     axes[0, 0].set_xlabel("Offset frequency [Hz]")
@@ -397,7 +408,7 @@ def main(config_path=DEFAULT_CONFIG_PATH, show_plot=True):
     overview_duration_s = overview_count / fs_audio_hz
     axes[0, 1].plot(time_s[:zoom_count], jitter_s[:zoom_count] * 1e12)
     axes[0, 1].set_xlabel("Time [s]")
-    axes[0, 1].set_ylabel("Sampling jitter [ps]")
+    axes[0, 1].set_ylabel("Timing error [ps]")
     axes[0, 1].set_title("Clock jitter (time domain, zoom)")
     axes[0, 1].grid(True, alpha=0.3)
 
@@ -439,7 +450,7 @@ def main(config_path=DEFAULT_CONFIG_PATH, show_plot=True):
 
     axes[1, 1].plot(time_s[:overview_count], jitter_s[:overview_count] * 1e12)
     axes[1, 1].set_xlabel("Time [s]")
-    axes[1, 1].set_ylabel("Sampling jitter [ps]")
+    axes[1, 1].set_ylabel("Timing error [ps]")
     axes[1, 1].set_title(
         f"Clock jitter (time domain, {overview_duration_s:g} s view, {overview_fraction * 100.0:.0f}% of run)"
     )
@@ -452,11 +463,12 @@ def main(config_path=DEFAULT_CONFIG_PATH, show_plot=True):
     else:
         mode_label = f"{input_tone_hz:.0f} Hz single tone"
     profile_label = f"1/f^{alpha:.1f}" if np.isfinite(alpha) else "piecewise"
+    heading_prefix = f"DUT: {dut_name} — " if dut_name else ""
     fig.suptitle(
-        f"Audio sampling under {profile_label} clock phase noise — {mode_label}\n"
+        f"{heading_prefix}{mode_label}\n"
         f"RMS jitter(sim) = {jitter_rms_s * 1e12:.3f} ps, "
         f"RMS jitter(model {jitter_integration_fmin_hz:g}..{effective_fmax_hz:g} Hz) = {model_jitter_rms_s * 1e12:.3f} ps, "
-        f"RMS jitter(datasheet {datasheet_jitter_fmin_hz:g}..{datasheet_effective_fmax_hz:g} Hz) = {model_jitter_datasheet_rms_s * 1e12:.3f} ps, "
+        f"RMS jitter(bw-limited {bw_limited_jitter_fmin_hz:g}..{bw_limited_effective_fmax_hz:g} Hz) = {model_jitter_bw_limited_rms_s * 1e12:.3f} ps, "
         f"jitter-limited SNR = {snr_jitter_db:.2f} dB"
     )
 
