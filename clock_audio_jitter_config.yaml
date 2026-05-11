@@ -1,0 +1,58 @@
+audio:
+  fs_audio_hz: 48000.0
+  duration_s: 20.0
+  input_tone_hz: 1000.0
+  clock_hz: 24576000.0
+  rng_seed: 42
+
+signal:
+  # single | twotone | comb
+  mode: single
+
+  # Used when mode = twotone
+  multitone_tones_hz:
+    - 19000.0
+    - 20000.0
+
+  # Used when mode = comb
+  comb_tone_count: 32
+  comb_freq_min_hz: 1000.0
+  comb_freq_max_hz: 20000.0
+
+phase_noise:
+  # power_law | fixed_slope | piecewise
+  model: power_law
+
+  # Used when model = power_law
+  power_law:
+    f1_hz: 0.1
+    l1_dbc: -50
+    f2_hz: 1000.0
+    l2_dbc: -150
+
+  # Used when model = fixed_slope
+  fixed_slope:
+    # Kept for backward compatibility with the old switch behavior
+    use_legacy_flag: false
+    alpha: 1.0
+    ref_freq_hz: 10000.0
+    ref_level_dbc: -47.0
+
+  # Used when model = piecewise
+  # Pairs are [offset_frequency_hz, L_dBc_per_Hz]
+  # Interpolation is linear in log10(frequency) and dBc/Hz.
+  piecewise_points:
+    - [0.1, -300.0]
+    - [1.0, -30.0]
+    - [2.0, -300.0]
+    - [10000.0, -300.0]
+
+integration:
+  fmin_hz: 0.1
+  fmax_hz: 24000.0
+
+plots:
+  waveform_zoom_periods: 5.0
+  # Fraction of total run shown in the lower-right jitter panel (0..1]
+  jitter_overview_fraction: 0.25
+  output_path: clock_audio_jitter_results.png
