@@ -62,10 +62,13 @@ Generic crystal example output:
 
 ![Generic crystal piecewise single-tone example](images/generic-crystal_piecewise_single_sample.png)
 
+This sample is generated from [configs/generic_crystal.yaml](configs/generic_crystal.yaml). It uses the `piecewise` phase-noise model with typical crystal-like close-in and far-out anchors, then reports jitter over a datasheet-style band (`integration.datasheet_fmin_hz` to `integration.datasheet_fmax_hz`) to mimic a basic oscillator specification near 1 ps RMS.
+
 ## Preset Configurations
 
 Ready-to-run examples are in [configs](configs):
 
+- [configs/generic_crystal.yaml](configs/generic_crystal.yaml): piecewise single-tone profile intended to emulate a generic ~1 ps RMS datasheet-style crystal oscillator
 - [configs/power_law_single.yaml](configs/power_law_single.yaml): single 1 kHz tone with 2-anchor power-law phase noise
 - [configs/piecewise_twotone_19k_20k.yaml](configs/piecewise_twotone_19k_20k.yaml): 19+20 kHz two-tone with piecewise phase-noise profile
 - [configs/piecewise_comb_32tone.yaml](configs/piecewise_comb_32tone.yaml): 32-tone comb with piecewise phase-noise profile
@@ -73,6 +76,7 @@ Ready-to-run examples are in [configs](configs):
 Run them directly:
 
 ```bash
+python clock_audio_jitter.py --config configs/generic_crystal.yaml
 python clock_audio_jitter.py --config configs/power_law_single.yaml
 python clock_audio_jitter.py --config configs/piecewise_twotone_19k_20k.yaml
 python clock_audio_jitter.py --config configs/piecewise_comb_32tone.yaml
