@@ -1,4 +1,4 @@
-# Clock Audio Jitter Simulator
+# Audio Clock Jitter Simulator
 
 This project simulates how clock phase noise maps into sampling jitter and degrades audio signal quality.
 
