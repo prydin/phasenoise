@@ -1,0 +1,28 @@
+audio:
+  fs_audio_hz: 48000.0
+  duration_s: 20.0
+  input_tone_hz: 1000.0
+  clock_hz: 4915200.0
+  rng_seed: 42
+
+signal:
+  mode: single
+
+phase_noise:
+  model: piecewise
+  piecewise_points:
+    - [0.1, -300]
+    - [0.9, -300]
+    - [1, -40]
+    - [1.1, -300]
+
+integration:
+  fmin_hz: 0.1
+  fmax_hz: 1000000.0
+  datasheet_fmin_hz: 100.0
+  datasheet_fmax_hz: 1000000.0
+
+plots:
+  waveform_zoom_periods: 5.0
+  jitter_overview_fraction: 0.25
+  output_path: output/generic-crystal_piecewise_single.png
