@@ -1,17 +1,19 @@
+# Alternate high-end OCXO preset using the same piecewise profile.
 dut_name: "High end 45158.25kHz OCXO"
 
 audio:
   fs_audio_hz: 48000.0
   duration_s: 60.0
-  input_tone_hz: 1000.0
   clock_hz: 4915200.0
   rng_seed: 42
 
 signal:
   mode: single
+  input_tone_hz: 1000.0
 
 phase_noise:
   model: piecewise
+  # Anchors are [offset_hz, L(f) dBc/Hz].
   piecewise_points:
     - [0.1, -49.44]
     - [1, -89.66]

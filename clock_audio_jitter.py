@@ -33,11 +33,14 @@ def load_config(config_path):
         "output_path": Path(plots.get("output_path", DEFAULT_OUTPUT_PATH)),
         "fs_audio_hz": float(audio.get("fs_audio_hz", 48_000.0)),
         "duration_s": float(audio.get("duration_s", 20.0)),
-        "input_tone_hz": float(audio.get("input_tone_hz", 1_000.0)),
+        "input_tone_hz": float(signal.get("input_tone_hz", audio.get("input_tone_hz", 1_000.0))),
         "clock_hz": float(audio.get("clock_hz", 24_576_000.0)),
         "rng_seed": int(audio.get("rng_seed", 42)),
         "waveform_zoom_periods": float(plots.get("waveform_zoom_periods", 5.0)),
         "jitter_overview_fraction": float(plots.get("jitter_overview_fraction", 0.25)),
+        "max_points_per_trace": int(plots.get("max_points_per_trace", 0)),
+        "fft_single_tone_zoom_percent": float(plots.get("fft_single_tone_zoom_percent", 1.0)),
+        "fft_show_full_spectrum": bool(plots.get("fft_show_full_spectrum", False)),
         "multitone_mode": str(signal.get("mode", "single")),
         "multitone_tones_hz": [float(v) for v in signal.get("multitone_tones_hz", [19_000.0, 20_000.0])],
         "comb_tone_count": int(signal.get("comb_tone_count", 32)),
@@ -48,7 +51,6 @@ def load_config(config_path):
         "phase_noise_l1_dbc": float(phase_noise.get("power_law", {}).get("l1_dbc", -80.0)),
         "phase_noise_f2_hz": float(phase_noise.get("power_law", {}).get("f2_hz", 10_000.0)),
         "phase_noise_l2_dbc": float(phase_noise.get("power_law", {}).get("l2_dbc", -180.0)),
-        "use_fixed_slope_model": bool(phase_noise.get("fixed_slope", {}).get("use_legacy_flag", False)),
         "fixed_slope_alpha": float(phase_noise.get("fixed_slope", {}).get("alpha", 1.0)),
         "fixed_slope_ref_freq_hz": float(phase_noise.get("fixed_slope", {}).get("ref_freq_hz", 10_000.0)),
         "fixed_slope_ref_level_dbc": float(phase_noise.get("fixed_slope", {}).get("ref_level_dbc", -180.0)),
@@ -70,12 +72,18 @@ def load_config(config_path):
         raise ValueError("phase_noise.model must be one of: power_law, fixed_slope, piecewise")
     if cfg["fs_audio_hz"] <= 0.0 or cfg["duration_s"] <= 0.0 or cfg["clock_hz"] <= 0.0:
         raise ValueError("audio.fs_audio_hz, audio.duration_s, and audio.clock_hz must be > 0")
+    if cfg["input_tone_hz"] <= 0.0:
+        raise ValueError("signal.input_tone_hz must be > 0")
     if cfg["jitter_integration_fmin_hz"] <= 0.0:
         raise ValueError("integration.fmin_hz must be > 0")
     if cfg["bw_limited_jitter_fmin_hz"] <= 0.0:
         raise ValueError("integration.bw_limited_fmin_hz must be > 0")
     if cfg["bw_limited_jitter_fmax_hz"] <= cfg["bw_limited_jitter_fmin_hz"]:
         raise ValueError("integration.bw_limited_fmax_hz must be > integration.bw_limited_fmin_hz")
+    if cfg["max_points_per_trace"] < 0:
+        raise ValueError("plots.max_points_per_trace must be >= 0")
+    if cfg["fft_single_tone_zoom_percent"] <= 0.0:
+        raise ValueError("plots.fft_single_tone_zoom_percent must be > 0")
 
     dut_name = cfg["dut_name"]
     if dut_name is None:
@@ -223,6 +231,16 @@ def fft_db(signal, fs_hz):
     return freqs[1:], mag_db[1:]
 
 
+def decimate_for_plot(x, y, max_points):
+    x = np.asarray(x)
+    y = np.asarray(y)
+    if x.size <= max_points:
+        return x, y
+
+    idx = np.linspace(0, x.size - 1, max_points, dtype=int)
+    return x[idx], y[idx]
+
+
 def main(config_path=DEFAULT_CONFIG_PATH, show_plot=True):
     cfg = load_config(config_path)
 
@@ -235,6 +253,9 @@ def main(config_path=DEFAULT_CONFIG_PATH, show_plot=True):
     rng_seed = cfg["rng_seed"]
     waveform_zoom_periods = cfg["waveform_zoom_periods"]
     jitter_overview_fraction = cfg["jitter_overview_fraction"]
+    max_points_per_trace = cfg["max_points_per_trace"]
+    fft_single_tone_zoom_percent = cfg["fft_single_tone_zoom_percent"]
+    fft_show_full_spectrum = cfg["fft_show_full_spectrum"]
 
     multitone_mode = cfg["multitone_mode"]
     multitone_tones_hz = cfg["multitone_tones_hz"]
@@ -247,7 +268,6 @@ def main(config_path=DEFAULT_CONFIG_PATH, show_plot=True):
     phase_noise_l1_dbc = cfg["phase_noise_l1_dbc"]
     phase_noise_f2_hz = cfg["phase_noise_f2_hz"]
     phase_noise_l2_dbc = cfg["phase_noise_l2_dbc"]
-    use_fixed_slope_model = cfg["use_fixed_slope_model"]
     fixed_slope_alpha = cfg["fixed_slope_alpha"]
     fixed_slope_ref_freq_hz = cfg["fixed_slope_ref_freq_hz"]
     fixed_slope_ref_level_dbc = cfg["fixed_slope_ref_level_dbc"]
@@ -269,11 +289,7 @@ def main(config_path=DEFAULT_CONFIG_PATH, show_plot=True):
         model_sphi = phase_noise_psd_from_piecewise_points(model_freq_bins, piecewise_phase_noise_points)
         model_label = "Piecewise-linear model"
     else:
-        # Backward compatibility: legacy boolean still works when model is not explicitly piecewise.
-        use_fixed = (phase_noise_model == "fixed_slope") or (
-            phase_noise_model == "power_law" and use_fixed_slope_model
-        )
-        if use_fixed:
+        if phase_noise_model == "fixed_slope":
             alpha, k = build_fixed_alpha_phase_noise_model(
                 fixed_slope_ref_freq_hz,
                 fixed_slope_ref_level_dbc,
@@ -359,19 +375,33 @@ def main(config_path=DEFAULT_CONFIG_PATH, show_plot=True):
         else:
             zoom_ref_hz = active_tones[0]
     else:
-        fft_band_low = input_tone_hz * 0.99
-        fft_band_high = input_tone_hz * 1.01
+        if fft_show_full_spectrum:
+            fft_band_low = 0.0
+            fft_band_high = fs_audio_hz / 2.0
+        else:
+            fft_band_low = input_tone_hz * (1.0 - fft_single_tone_zoom_percent / 100.0)
+            fft_band_high = input_tone_hz * (1.0 + fft_single_tone_zoom_percent / 100.0)
         near_tone = (fft_freq_ref >= fft_band_low) & (fft_freq_ref <= fft_band_high)
         zoom_ref_hz = input_tone_hz
 
     fig, axes = plt.subplots(2, 2, figsize=(13, 9), constrained_layout=True)
 
+    if max_points_per_trace == 0:
+        # Auto mode: a few points per horizontal pixel is visually sufficient.
+        point_budget = int(max(1000, fig.get_figwidth() * fig.dpi * 2.0))
+    else:
+        point_budget = max_points_per_trace
+
     slope_label = model_label
     plot_mask_model = model_freq_bins >= jitter_integration_fmin_hz
     plot_mask_est = psd_freq >= jitter_integration_fmin_hz
+    plot_x_est, plot_y_est = decimate_for_plot(psd_freq[plot_mask_est], phase_noise_est_dbc[plot_mask_est], point_budget)
+    plot_x_model, plot_y_model = decimate_for_plot(
+        model_freq_bins[plot_mask_model], model_phase_noise_dbc[plot_mask_model], point_budget
+    )
     axes[0, 0].plot(
-        psd_freq[plot_mask_est],
-        phase_noise_est_dbc[plot_mask_est],
+        plot_x_est,
+        plot_y_est,
         label="Synthesized phase noise",
         color="tab:orange",
         linewidth=1.4,
@@ -379,8 +409,8 @@ def main(config_path=DEFAULT_CONFIG_PATH, show_plot=True):
         zorder=2,
     )
     axes[0, 0].plot(
-        model_freq_bins[plot_mask_model],
-        model_phase_noise_dbc[plot_mask_model],
+        plot_x_model,
+        plot_y_model,
         label=slope_label,
         color="tab:blue",
         linewidth=2.2,
@@ -406,16 +436,19 @@ def main(config_path=DEFAULT_CONFIG_PATH, show_plot=True):
     overview_fraction = np.clip(jitter_overview_fraction, 1.0 / max(time_s.size, 1), 1.0)
     overview_count = int(max(1, np.ceil(overview_fraction * time_s.size)))
     overview_duration_s = overview_count / fs_audio_hz
-    axes[0, 1].plot(time_s[:zoom_count], jitter_s[:zoom_count] * 1e12)
+    plot_x_zoom, plot_y_zoom = decimate_for_plot(time_s[:zoom_count], jitter_s[:zoom_count] * 1e12, point_budget)
+    axes[0, 1].plot(plot_x_zoom, plot_y_zoom)
     axes[0, 1].set_xlabel("Time [s]")
     axes[0, 1].set_ylabel("Timing error [ps]")
     axes[0, 1].set_title("Clock jitter (time domain, zoom)")
     axes[0, 1].grid(True, alpha=0.3)
 
-    axes[1, 0].plot(fft_freq_smp[near_tone], fft_db_smp[near_tone], label="Jittered sampling")
+    plot_x_fft_smp, plot_y_fft_smp = decimate_for_plot(fft_freq_smp[near_tone], fft_db_smp[near_tone], point_budget)
+    plot_x_fft_ref, plot_y_fft_ref = decimate_for_plot(fft_freq_ref[near_tone], fft_db_ref[near_tone], point_budget)
+    axes[1, 0].plot(plot_x_fft_smp, plot_y_fft_smp, label="Jittered sampling")
     axes[1, 0].plot(
-        fft_freq_ref[near_tone],
-        fft_db_ref[near_tone],
+        plot_x_fft_ref,
+        plot_y_fft_ref,
         label="Ideal sampling",
         color="black",
         linewidth=2.0,
@@ -432,7 +465,12 @@ def main(config_path=DEFAULT_CONFIG_PATH, show_plot=True):
         tones_str = " + ".join(f"{f/1e3:.3g} kHz" for f in active_tones)
         axes[1, 0].set_title(f"FFT — 2-tone {tones_str}")
     else:
-        axes[1, 0].set_title(f"FFT around {input_tone_hz:.0f} Hz tone")
+        if fft_show_full_spectrum:
+            axes[1, 0].set_title(f"FFT full spectrum around {input_tone_hz:.0f} Hz tone")
+        else:
+            axes[1, 0].set_title(
+                f"FFT around {input_tone_hz:.0f} Hz tone (±{fft_single_tone_zoom_percent:g}%)"
+            )
     axes[1, 0].set_xlim(fft_band_low, fft_band_high)
     axes[1, 0].grid(True, alpha=0.3)
     axes[1, 0].legend()
@@ -448,7 +486,10 @@ def main(config_path=DEFAULT_CONFIG_PATH, show_plot=True):
                            label=f"IMD2 @ {f_imd2:.0f} Hz ({imd2_ratio_db:+.1f} dBc)")
         axes[1, 0].legend()
 
-    axes[1, 1].plot(time_s[:overview_count], jitter_s[:overview_count] * 1e12)
+    plot_x_overview, plot_y_overview = decimate_for_plot(
+        time_s[:overview_count], jitter_s[:overview_count] * 1e12, point_budget
+    )
+    axes[1, 1].plot(plot_x_overview, plot_y_overview)
     axes[1, 1].set_xlabel("Time [s]")
     axes[1, 1].set_ylabel("Timing error [ps]")
     axes[1, 1].set_title(

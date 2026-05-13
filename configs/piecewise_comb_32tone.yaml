@@ -1,31 +1,20 @@
+# 32-tone comb stress test across audio band with piecewise phase noise.
 audio:
   fs_audio_hz: 48000.0
   duration_s: 30.0
-  input_tone_hz: 1000.0
   clock_hz: 24576000.0
   rng_seed: 42
 
 signal:
+  # Evenly spaced tone comb from 1 kHz to 20 kHz.
   mode: comb
-  multitone_tones_hz:
-    - 19000.0
-    - 20000.0
   comb_tone_count: 32
   comb_freq_min_hz: 1000.0
   comb_freq_max_hz: 20000.0
 
 phase_noise:
   model: piecewise
-  power_law:
-    f1_hz: 0.1
-    l1_dbc: -90.0
-    f2_hz: 10000.0
-    l2_dbc: -150.0
-  fixed_slope:
-    use_legacy_flag: false
-    alpha: 1.0
-    ref_freq_hz: 10000.0
-    ref_level_dbc: -150.0
+  # Anchors are [offset_hz, L(f) dBc/Hz].
   piecewise_points:
     - [0.1, -75.0]
     - [1.0, -95.0]
@@ -41,4 +30,4 @@ integration:
 plots:
   waveform_zoom_periods: 4.0
   jitter_overview_fraction: 0.4
-  output_path: clock_audio_jitter_results_piecewise_comb.png
+  output_path: output/clock_audio_jitter_results_piecewise_comb.png

@@ -1,0 +1,38 @@
+# Lab case: 181 kHz single tone with a near-discrete PN spur around 180 kHz offset.
+audio:
+  fs_audio_hz: 2000000.0
+  duration_s: 1
+  clock_hz: 24576000.0
+  rng_seed: 42
+
+signal:
+  # Single-tone analysis; comb settings are intentionally omitted.
+  mode: single
+  input_tone_hz: 181000.0
+
+phase_noise:
+  model: piecewise
+  # Piecewise anchors are [offset_hz, L(f) dBc/Hz].
+  piecewise_points:
+    - [0.1, -300]
+    - [179999, -300]
+    - [180000, -60]
+    - [180001.1, -300]
+#    - [0.1, -60]
+#    - [10, -80]
+#    - [100, -110]
+#    - [1000, -138]
+#    - [10000, -154]
+#    - [100000, -160]
+#    - [1000000, -162]
+
+integration:
+  fmin_hz: 0.1
+  fmax_hz: 1000000.0
+
+plots:
+  waveform_zoom_periods: 4.0
+  jitter_overview_fraction: 0.4
+  max_points_per_trace: 1000000
+  output_path: output/clock_audio_jitter_results_piecewise_comb.png
+  fft_show_full_spectrum: true

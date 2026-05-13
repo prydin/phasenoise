@@ -2,15 +2,20 @@
 dut_name: ""
 
 audio:
+  # Audio sample rate and simulation length.
   fs_audio_hz: 48000.0
   duration_s: 20.0
-  input_tone_hz: 1000.0
+  # Clock used to convert phase noise (rad) to jitter (seconds).
   clock_hz: 24576000.0
+  # Random seed for repeatable runs.
   rng_seed: 42
 
 signal:
   # single | twotone | comb
   mode: single
+
+  # Used when mode = single
+  input_tone_hz: 1000.0
 
   # Used when mode = twotone
   multitone_tones_hz:
@@ -35,8 +40,6 @@ phase_noise:
 
   # Used when model = fixed_slope
   fixed_slope:
-    # Kept for backward compatibility with the old switch behavior
-    use_legacy_flag: false
     alpha: 1.0
     ref_freq_hz: 10000.0
     ref_level_dbc: -47.0
@@ -61,4 +64,10 @@ plots:
   waveform_zoom_periods: 5.0
   # Fraction of total run shown in the lower-right jitter panel (0..1]
   jitter_overview_fraction: 0.25
+  # Plot decimation budget per trace. 0 = auto (based on figure resolution)
+  max_points_per_trace: 0
+  # Single-tone FFT zoom width, as +/- percent around signal.input_tone_hz
+  fft_single_tone_zoom_percent: 1.0
+  # If true, single-tone FFT uses the full 0..Nyquist band instead of zooming
+  fft_show_full_spectrum: false
   output_path: clock_audio_jitter_results.png

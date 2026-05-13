@@ -84,7 +84,58 @@ python clock_audio_jitter.py --config configs/piecewise_comb_32tone.yaml
 
 ## Configuration Guide
 
-All runtime settings are in `clock_audio_jitter_config.yaml`.
+All runtime settings are in `clock_audio_jitter_config.yaml`. Config keys are grouped by function:
+
+- `audio`: sampling clock/audio timing and repeatability controls
+- `signal`: what test stimulus is generated (`single`, `twotone`, or `comb`)
+- `phase_noise`: how $L(f)$ is modeled (power-law, fixed-slope, or piecewise)
+- `integration`: frequency bands used for reported RMS jitter metrics
+- `plots`: figure layout, decimation, and output path
+
+### Simple Example
+
+```yaml
+dut_name: "Example XO"
+
+audio:
+  fs_audio_hz: 48000.0
+  duration_s: 20.0
+  clock_hz: 24576000.0
+  rng_seed: 42
+
+signal:
+  mode: single
+  input_tone_hz: 1000.0
+
+phase_noise:
+  model: piecewise
+  piecewise_points:
+    - [0.1, -80.0]
+    - [10.0, -110.0]
+    - [1000.0, -145.0]
+    - [10000.0, -155.0]
+
+integration:
+  fmin_hz: 0.1
+  fmax_hz: 24000.0
+  bw_limited_fmin_hz: 100.0
+  bw_limited_fmax_hz: 24000.0
+
+plots:
+  waveform_zoom_periods: 5.0
+  jitter_overview_fraction: 0.25
+  max_points_per_trace: 0
+  fft_single_tone_zoom_percent: 1.0
+  fft_show_full_spectrum: false
+  output_path: output/example.png
+```
+
+How this example behaves:
+
+- Generates a 1 kHz single-tone test signal.
+- Shapes phase noise from the piecewise $L(f)$ anchors (values are dBc/Hz).
+- Reports full-band jitter over `0.1..24000 Hz` and bw-limited jitter over `100..24000 Hz`.
+- Saves the final 2x2 summary figure to `output/example.png`.
 
 ### Top-Level
 
@@ -92,49 +143,55 @@ All runtime settings are in `clock_audio_jitter_config.yaml`.
 
 ### `audio`
 
-- `fs_audio_hz`: audio sample rate
-- `duration_s`: simulation length
-- `input_tone_hz`: used in `signal.mode: single`
-- `clock_hz`: clock frequency used for phase-to-time conversion
-- `rng_seed`: random seed for repeatability
+- `fs_audio_hz`: audio sample rate in Hz.
+- `duration_s`: simulation length in seconds.
+- `clock_hz`: sampling clock frequency used for phase-to-time conversion.
+- `rng_seed`: random seed for repeatability.
 
 ### `signal`
 
-- `mode`: `single`, `twotone`, or `comb`
-- `multitone_tones_hz`: tones used for `twotone`
-- `comb_tone_count`, `comb_freq_min_hz`, `comb_freq_max_hz`: comb generator controls
+- `mode`: `single`, `twotone`, or `comb`.
+- `input_tone_hz`: used when `mode: single`.
+- `multitone_tones_hz`: list of tones used when `mode: twotone`.
+- `comb_tone_count`, `comb_freq_min_hz`, `comb_freq_max_hz`: comb generator controls used when `mode: comb`.
 
 ### `phase_noise`
 
-- `model`: `power_law`, `fixed_slope`, or `piecewise`
+- `model`: `power_law`, `fixed_slope`, or `piecewise`.
 
 `power_law` fields:
-- `f1_hz`, `l1_dbc`, `f2_hz`, `l2_dbc`
+
+- `f1_hz`, `l1_dbc`, `f2_hz`, `l2_dbc`.
+- Defines a straight line in log-frequency vs dB, converted to $S_\phi(f)$ internally.
 
 `fixed_slope` fields:
-- `alpha`: slope exponent in $S_\phi(f)=K/f^\alpha$
-- `ref_freq_hz`, `ref_level_dbc`: anchor point
-- `use_legacy_flag`: backward-compatibility switch
+
+- `alpha`: slope exponent in $S_\phi(f)=K/f^\alpha$.
+- `ref_freq_hz`, `ref_level_dbc`: reference anchor point used to solve for $K$.
 
 `piecewise_points`:
-- list of `[frequency_hz, level_dbc_per_hz]`
-- frequencies must be greater than 0
-- at least two points are required
-- interpolation is linear in log-frequency and dBc/Hz
-- values below the first point or above the last point are endpoint-clamped
+
+- List of `[offset_frequency_hz, level_dbc_per_hz]`.
+- Frequencies must be > 0 and strictly increasing.
+- At least two points are required.
+- Interpolation is linear in log-frequency and dBc/Hz.
+- Values outside the anchor range are endpoint-clamped.
 
 ### `integration`
 
-- `fmin_hz`, `fmax_hz`: analysis integration band for model RMS jitter
-- `bw_limited_fmin_hz`, `bw_limited_fmax_hz`: separate bw-limited integration band
+- `fmin_hz`, `fmax_hz`: primary analysis integration band for model RMS jitter.
+- `bw_limited_fmin_hz`, `bw_limited_fmax_hz`: secondary bw-limited integration band.
 
 Both integration bands are limited by Nyquist (`audio.fs_audio_hz / 2`) in the current implementation.
 
 ### `plots`
 
-- `waveform_zoom_periods`: short-time jitter panel zoom
-- `jitter_overview_fraction`: long-time jitter panel coverage as fraction of run
-- `output_path`: output image path
+- `waveform_zoom_periods`: short-time jitter panel zoom.
+- `jitter_overview_fraction`: long-time jitter panel coverage as fraction of run.
+- `max_points_per_trace`: plot decimation budget per trace (`0` = auto based on figure resolution).
+- `fft_single_tone_zoom_percent`: single-tone FFT zoom width as +/- percent around `signal.input_tone_hz`.
+- `fft_show_full_spectrum`: when `true`, single-tone FFT uses full `0..Nyquist` instead of zooming.
+- `output_path`: output image path.
 
 ## Notes
 

@@ -1,15 +1,18 @@
+# Narrowband synthetic jitter test: a single close-in phase-noise bump.
 audio:
   fs_audio_hz: 48000.0
   duration_s: 20.0
-  input_tone_hz: 1000.0
   clock_hz: 4915200.0
   rng_seed: 42
 
 signal:
+  # Single-tone audio input at 1 kHz.
   mode: single
+  input_tone_hz: 1000.0
 
 phase_noise:
   model: piecewise
+  # Very sharp bump around 1 Hz offset to make the effect easy to see.
   piecewise_points:
     - [0.1, -300]
     - [0.9, -300]
