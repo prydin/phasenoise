@@ -1,0 +1,35 @@
+dut_name: "Heavy Jitter Test - 1kHz Sine"
+
+audio:
+  fs_audio_hz: 48000.0
+  duration_s: 5.0
+  clock_hz: 24576000.0
+  rng_seed: 42
+
+signal:
+  mode: wav
+  wav_input_path: test_1khz_sine.wav
+  wav_output_path: output/test_1khz_sine_heavy_jitter.wav
+  wav_interpolation: cubic
+
+phase_noise:
+  model: power_law
+  power_law:
+    f1_hz: 1.0
+    l1_dbc: -40.0
+    f2_hz: 100000.0
+    l2_dbc: -120.0
+
+integration:
+  fmin_hz: 1.0
+  fmax_hz: 24000.0
+  bw_limited_fmin_hz: 10.0
+  bw_limited_fmax_hz: 24000.0
+
+plots:
+  output_path: output/wav_1khz_heavy_jitter_plot.png
+  waveform_zoom_periods: 10.0
+  jitter_overview_fraction: 0.25
+  max_points_per_trace: 0
+  fft_single_tone_zoom_percent: 5.0
+  fft_show_full_spectrum: false

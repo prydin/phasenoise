@@ -14,7 +14,7 @@ Output image path: configured by `plots.output_path`
   - `piecewise` (frequency/level anchor list with interpolation)
 - Synthesizes phase noise in the frequency domain
 - Converts phase noise to timing jitter
-- Applies jitter to sample timing for single-tone, 2-tone, or 32-tone comb input
+- Applies jitter to sample timing for single-tone, 2-tone, 32-tone comb, or WAV-file input
 - Computes and reports:
   - simulation RMS jitter
   - model RMS jitter over analysis band (`integration.fmin_hz..integration.fmax_hz`, Nyquist-clipped)
@@ -33,11 +33,12 @@ Output image path: configured by `plots.output_path`
 - `numpy`
 - `matplotlib`
 - `pyyaml`
+- `scipy` (for cubic and Farrow interpolation in WAV mode)
 
 Install:
 
 ```bash
-pip install numpy matplotlib pyyaml
+pip install numpy matplotlib pyyaml scipy
 ```
 
 ## Run
@@ -53,6 +54,26 @@ Use a custom config:
 ```bash
 python clock_audio_jitter.py --config my_config.yaml
 ```
+
+Override WAV and image paths from CLI:
+
+```bash
+python clock_audio_jitter.py --config configs/wav_jitter_example.yaml --in input.wav --out output.wav --img plot.png
+```
+
+Disable image generation:
+
+```bash
+python clock_audio_jitter.py --config configs/wav_jitter_example.yaml --in input.wav --noimg --headless
+```
+
+Path resolution rules:
+
+- `--in` + `--out` override `signal.wav_input_path` and `signal.wav_output_path` from config.
+- In `signal.mode: wav`, if `--in` is provided, config `signal.wav_input_path`/`signal.wav_output_path` are not required.
+- If only `--in` is provided, output WAV defaults to `<input_stem>_jittered.wav` in the same folder.
+- If no image path is provided by config or `--img`, image defaults to `<input_stem>.png` (same folder as input).
+- `--noimg` disables PNG generation.
 
 Tip: all reported integration upper bounds are effectively clipped to audio Nyquist (`audio.fs_audio_hz / 2`).
 
@@ -87,7 +108,7 @@ python clock_audio_jitter.py --config configs/piecewise_comb_32tone.yaml
 All runtime settings are in `clock_audio_jitter_config.yaml`. Config keys are grouped by function:
 
 - `audio`: sampling clock/audio timing and repeatability controls
-- `signal`: what test stimulus is generated (`single`, `twotone`, or `comb`)
+- `signal`: what test stimulus is generated (`single`, `twotone`, `comb`, or `wav`)
 - `phase_noise`: how $L(f)$ is modeled (power-law, fixed-slope, or piecewise)
 - `integration`: frequency bands used for reported RMS jitter metrics
 - `plots`: figure layout, decimation, and output path
@@ -150,10 +171,23 @@ How this example behaves:
 
 ### `signal`
 
-- `mode`: `single`, `twotone`, or `comb`.
+- `mode`: `single`, `twotone`, `comb`, or `wav`.
 - `input_tone_hz`: used when `mode: single`.
 - `multitone_tones_hz`: list of tones used when `mode: twotone`.
 - `comb_tone_count`, `comb_freq_min_hz`, `comb_freq_max_hz`: comb generator controls used when `mode: comb`.
+- `wav_input_path`, `wav_output_path`, `wav_interpolation`: used when `mode: wav`.
+
+When `mode: wav`, the tool reads the input PCM WAV, synthesizes clock jitter from the configured phase-noise profile, then applies time-axis perturbation through interpolation:
+
+$$y[n] = x\left(\frac{n}{F_s} + \Delta t[n]\right)$$
+
+The output jittered WAV is written to `signal.wav_output_path`.
+
+**Interpolation methods** (specified by `wav_interpolation`):
+
+- `linear`: Fast linear interpolation. Suitable for real-time processing or when CPU is limited. Produces ~6 dB SNR degradation from interpolation artifacts.
+- `cubic`: Cubic spline interpolation (recommended default). Excellent balance of speed and quality, achieving ~87 dB SNR. Suitable for most audio applications.
+- `farrow`: High-order polynomial interpolation (quintic spline via scipy UnivariateSpline). Best fidelity for offline processing and mastering, achieving ~87.6 dB SNR with minimal spectral artifacts.
 
 ### `phase_noise`
 

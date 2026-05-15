@@ -3,12 +3,16 @@ dut_name: "High end 45158.25kHz OCXO"
 
 audio:
   fs_audio_hz: 48000.0
-  duration_s: 60.0
+  duration_s: 20.0
   clock_hz: 4915200.0
   rng_seed: 42
 
 signal:
-  mode: single
+  mode: twotone
+  multitone_tones_hz:
+    - 12000.0
+    - 250.0
+  j_test_bit_depth: 16
   input_tone_hz: 1000.0
 
 phase_noise:
@@ -34,3 +38,4 @@ plots:
   waveform_zoom_periods: 5.0
   jitter_overview_fraction: 0.25
   output_path: output/high-end_results.png
+  max_points_per_trace: 1000000

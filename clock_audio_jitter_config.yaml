@@ -11,7 +11,7 @@ audio:
   rng_seed: 42
 
 signal:
-  # single | twotone | comb
+  # single | twotone | comb | wav
   mode: single
 
   # Used when mode = single
@@ -26,6 +26,12 @@ signal:
   comb_tone_count: 32
   comb_freq_min_hz: 1000.0
   comb_freq_max_hz: 20000.0
+
+  # Used when mode = wav
+  wav_input_path: ""
+  wav_output_path: "output/jittered.wav"
+  # Currently supported: linear
+  wav_interpolation: linear
 
 phase_noise:
   # power_law | fixed_slope | piecewise

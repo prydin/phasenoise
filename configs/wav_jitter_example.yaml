@@ -1,0 +1,42 @@
+# Example: apply clock-jitter profile to an input WAV file
+# Set signal.wav_input_path to your source file.
+dut_name: "WAV jitter example"
+
+audio:
+  # fs_audio_hz is ignored in wav mode and replaced by the WAV file's sample rate.
+  fs_audio_hz: 48000.0
+  duration_s: 1.0
+  clock_hz: 49152000.0
+  rng_seed: 42
+
+signal:
+  mode: wav
+  wav_input_path: "output/test_input.wav"
+  wav_output_path: "output/test_input_jittered.wav"
+  wav_interpolation: linear
+  # Not used in wav mode, kept for compatibility.
+  input_tone_hz: 1000.0
+
+phase_noise:
+  model: piecewise
+  piecewise_points:
+    - [0.1, -80.0]
+    - [1.0, -105.0]
+    - [10.0, -130.0]
+    - [100.0, -145.0]
+    - [1000.0, -157.0]
+    - [10000.0, -165.0]
+
+integration:
+  fmin_hz: 0.1
+  fmax_hz: 24000.0
+  bw_limited_fmin_hz: 100.0
+  bw_limited_fmax_hz: 24000.0
+
+plots:
+  waveform_zoom_periods: 5.0
+  jitter_overview_fraction: 0.25
+  max_points_per_trace: 0
+  fft_single_tone_zoom_percent: 1.0
+  fft_show_full_spectrum: true
+  output_path: output/wav_jitter_example_plot.png

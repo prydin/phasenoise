@@ -1,14 +1,16 @@
 # Generic crystal-like single-tone case using a piecewise phase-noise profile.
 audio:
   fs_audio_hz: 48000.0
-  duration_s: 20.0
+  duration_s: 60.0
   clock_hz: 4915200.0
   rng_seed: 42
 
 signal:
   # Single-tone audio test at 1 kHz.
-  mode: single
-  input_tone_hz: 1000.0
+ mode: twotone
+ multitone_tones_hz:
+  - 12000.0
+  - 250.0
 
 phase_noise:
   model: piecewise
@@ -33,4 +35,5 @@ integration:
 plots:
   waveform_zoom_periods: 5.0
   jitter_overview_fraction: 0.25
+  max_points_per_trace: 1000000
   output_path: output/generic-crystal_piecewise_single.png

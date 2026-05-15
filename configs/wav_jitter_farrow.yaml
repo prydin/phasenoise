@@ -1,0 +1,35 @@
+dut_name: null
+
+audio:
+  fs_audio_hz: 48000.0
+  duration_s: 20.0
+  clock_hz: 24576000.0
+  rng_seed: 42
+
+signal:
+  mode: wav
+  wav_input_path: test_input.wav
+  wav_output_path: output/test_input_jittered_farrow.wav
+  wav_interpolation: farrow
+
+phase_noise:
+  model: power_law
+  power_law:
+    f1_hz: 100.0
+    l1_dbc: -80.0
+    f2_hz: 10000.0
+    l2_dbc: -180.0
+
+integration:
+  fmin_hz: 10.0
+  fmax_hz: 24000.0
+  bw_limited_fmin_hz: 100.0
+  bw_limited_fmax_hz: 24000.0
+
+plots:
+  output_path: output/wav_jitter_farrow_plot.png
+  waveform_zoom_periods: 5.0
+  jitter_overview_fraction: 0.25
+  max_points_per_trace: 0
+  fft_single_tone_zoom_percent: 1.0
+  fft_show_full_spectrum: false
